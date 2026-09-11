@@ -375,10 +375,10 @@
     }
 
     /* ============================================================
-       3) CHAT & FLASH MODEL (Optimized Speed)
+       3) CHAT & GEMINI 3.6 FLASH MODEL
        ============================================================ */
     let history = [];
-    const MODEL = 'gemini-2.5-flash';
+    const MODEL = 'gemini-3.6-flash';
 
     function scrollChatToEnd(){
       const el = document.getElementById('chatMessages');
@@ -424,7 +424,7 @@
           span.textContent += text.charAt(i);
           i++;
           scrollChatToEnd();
-          await new Promise(r => setTimeout(r, 5)); // Speeded up text display
+          await new Promise(r => setTimeout(r, 5));
         }
       } else {
         msgDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(text)}`;
@@ -495,7 +495,6 @@
             speakText(reply);
           }
 
-          // Enhanced App Integration / Intent handling
           const lowerMsg = message.toLowerCase();
           if (lowerMsg.includes('navigate') || lowerMsg.includes('map') || lowerMsg.includes('directions')) {
             openExternal('https://maps.google.com');
@@ -567,8 +566,8 @@
         }
       }, (err) => {
         document.getElementById('weatherCond').textContent = 'Permission denied';
-        alert('Location permission was denied. Please allow it in app settings.');
-      }, { timeout: 10000 });
+        alert('Location permission was denied. Please allow it in Android app settings.');
+      }, { timeout: 10000, enableHighAccuracy: true });
     }
     window.addEventListener('DOMContentLoaded', requestLocationPermission);
 
@@ -590,15 +589,15 @@
         await stopListening();
         return;
       }
-      // Explicitly prompt audio permission first via mediaDevices to trigger OS dialog reliably
+
+      // Explicitly prompt WebView microphone access first
       try{
         if(navigator.mediaDevices?.getUserMedia){
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          // Stop stream immediately since SpeechRecognition will handle capture
           stream.getTracks().forEach(track => track.stop());
         }
       }catch(e){
-        alert('Microphone permission required for voice input.');
+        alert('Microphone permission required. Please enable it in Android app settings.');
         return;
       }
 
