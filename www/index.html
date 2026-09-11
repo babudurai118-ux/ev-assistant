@@ -186,7 +186,8 @@
       text-transform:uppercase; margin-bottom:6px; letter-spacing:1px;
     }
     .card .value{ font-family:'Orbitron', sans-serif; font-size:18px; font-weight:600; }
-    .card .sub{ font-size:11px; color:var(--text-low); margin-top:4px; }
+    .card .sub{ font-size:11px; color:var(--text-low); margin-top:4px; cursor:pointer; }
+    .card .sub:hover{ color:var(--accent); text-decoration:underline; }
 
     .quick-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px; }
     .quick-btn{
@@ -274,7 +275,7 @@
       <div class="card">
         <h3>Weather</h3>
         <div class="value" id="weatherTemp">--°</div>
-        <div class="sub" id="weatherCond">Locating…</div>
+        <div class="sub" id="weatherCond" onclick="requestLocationPermission()">Tap to enable location</div>
       </div>
       <div class="card">
         <h3>Battery</h3>
@@ -288,7 +289,7 @@
       <div class="quick-grid">
         <div class="quick-btn" onclick="sendToEV('Open maps and navigate', false)">🗺️ Navigate</div>
         <div class="quick-btn" onclick="sendToEV('Play a song on YouTube', false)">▶️ YouTube</div>
-        <div class="quick-btn" onclick="sendToEV('Check my device status', false)">⚡ System Info</div>
+        <div class="quick-btn" onclick="sendToEV('Open Spotify', false)">🎵 Spotify</div>
         <div class="quick-btn" onclick="sendToEV('Tell me a quick tech fact', false)">💡 Tech Fact</div>
       </div>
     </div>
@@ -349,7 +350,7 @@
     if(!apiKey) showKeyModal();
 
     /* ============================================================
-       1) NATIVE / CAPACITOR DETECTION
+       1) NATIVE / APP INTENT & BROWSERS
        ============================================================ */
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
@@ -374,10 +375,10 @@
     }
 
     /* ============================================================
-       3) CHAT & FLASH MODEL (Updated to gemini-3.6-flash)
+       3) CHAT & FLASH MODEL (Optimized Speed)
        ============================================================ */
     let history = [];
-    const MODEL = 'gemini-3.6-flash';
+    const MODEL = 'gemini-2.5-flash';
 
     function scrollChatToEnd(){
       const el = document.getElementById('chatMessages');
@@ -423,7 +424,7 @@
           span.textContent += text.charAt(i);
           i++;
           scrollChatToEnd();
-          await new Promise(r => setTimeout(r, 10));
+          await new Promise(r => setTimeout(r, 5)); // Speeded up text display
         }
       } else {
         msgDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(text)}`;
@@ -465,7 +466,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: "You are E.V., a personal AI assistant for Durai, a 12th-grade student in Chennai, India. Keep your tone sharp, helpful, friendly, and resourceful. If asked to open an app, navigate, or check something, keep the reply brief since the action happens separately." }]
+              parts: [{ text: "You are E.V., a personal AI assistant for Durai, a 12th-grade student in Chennai, India. Keep your tone sharp, helpful, friendly, and concise." }]
             },
             contents
           })
@@ -476,11 +477,7 @@
         if(!res.ok){
           const errBody = await res.json().catch(()=>({}));
           const msg = errBody.error?.message || `Request failed (HTTP ${res.status})`;
-          if(res.status === 400 || res.status === 403){
-            await addMessageAnimated('ev', `Key rejected: ${msg}. Check it in SETTINGS.`, true);
-          } else {
-            await addMessageAnimated('ev', `Error: ${msg}`, true);
-          }
+          await addMessageAnimated('ev', `Error: ${msg}`, true);
           return;
         }
 
@@ -498,22 +495,21 @@
             speakText(reply);
           }
 
+          // Enhanced App Integration / Intent handling
           const lowerMsg = message.toLowerCase();
           if (lowerMsg.includes('navigate') || lowerMsg.includes('map') || lowerMsg.includes('directions')) {
             openExternal('https://maps.google.com');
           } else if (lowerMsg.includes('youtube') || lowerMsg.includes(' yt ')) {
             const query = message.replace(/play|on|to|youtube|yt|search/gi, '').trim();
             openExternal(query ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}` : 'https://www.youtube.com');
+          } else if (lowerMsg.includes('spotify') || lowerMsg.includes('music')) {
+            openExternal('https://open.spotify.com');
           } else if (lowerMsg.includes('call')) {
             window.location.href = 'tel:';
-          } else if (lowerMsg.includes('spotify') || (lowerMsg.includes('music') && !lowerMsg.includes('youtube'))) {
-            openExternal('https://open.spotify.com');
           }
           if (navigator.vibrate) navigator.vibrate(50);
         } else {
-          await addMessageAnimated('ev', data.candidates?.[0]?.finishReason
-            ? `Response blocked (${data.candidates[0].finishReason}).`
-            : "No response came back — try rephrasing.", true);
+          await addMessageAnimated('ev', "No response came back — try rephrasing.", true);
         }
       } catch (err) {
         document.getElementById('typingIndicator')?.remove();
@@ -546,16 +542,17 @@
       }
       document.querySelectorAll('.battery-value').forEach(el => el.textContent = '—');
       const statusEl = document.querySelector('.ev-status-text');
-      if (statusEl) statusEl.textContent = 'Not available on this device';
+      if (statusEl) statusEl.textContent = 'Not supported';
     }
     window.addEventListener('DOMContentLoaded', initBattery);
 
     /* ============================================================
-       5) WEATHER
+       5) WEATHER & EXPLICIT LOCATION PERMISSION PROMPT
        ============================================================ */
-    async function initWeather(){
+    function requestLocationPermission(){
+      document.getElementById('weatherCond').textContent = 'Requesting location...';
       if(!navigator.geolocation){
-        document.getElementById('weatherCond').textContent = 'Location unavailable';
+        document.getElementById('weatherCond').textContent = 'Geolocation unsupported';
         return;
       }
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -566,16 +563,17 @@
           document.getElementById('weatherTemp').textContent = Math.round(data.current.temperature_2m) + '°C';
           document.getElementById('weatherCond').textContent = 'Live conditions';
         }catch(e){
-          document.getElementById('weatherCond').textContent = 'Weather unavailable';
+          document.getElementById('weatherCond').textContent = 'Weather fetch failed';
         }
-      }, () => {
-        document.getElementById('weatherCond').textContent = 'Location permission denied';
-      });
+      }, (err) => {
+        document.getElementById('weatherCond').textContent = 'Permission denied';
+        alert('Location permission was denied. Please allow it in app settings.');
+      }, { timeout: 10000 });
     }
-    window.addEventListener('DOMContentLoaded', initWeather);
+    window.addEventListener('DOMContentLoaded', requestLocationPermission);
 
     /* ============================================================
-       6) MIC & VOICE INPUT
+       6) MIC & EXPLICIT PERMISSION PROMPT
        ============================================================ */
     let recognition = null;
     let isListening = false;
@@ -592,6 +590,18 @@
         await stopListening();
         return;
       }
+      // Explicitly prompt audio permission first via mediaDevices to trigger OS dialog reliably
+      try{
+        if(navigator.mediaDevices?.getUserMedia){
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Stop stream immediately since SpeechRecognition will handle capture
+          stream.getTracks().forEach(track => track.stop());
+        }
+      }catch(e){
+        alert('Microphone permission required for voice input.');
+        return;
+      }
+
       if(isNative && window.Capacitor?.Plugins?.SpeechRecognition){
         await startNativeListening();
       } else {
@@ -603,7 +613,7 @@
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if(!SpeechRecognitionAPI){
         document.getElementById('micBtn')?.classList.add('unsupported');
-        alert('Voice input needs Chrome over HTTPS or localhost.');
+        alert('Voice input is not supported in this environment.');
         return;
       }
       try{
@@ -621,15 +631,12 @@
         };
         recognition.onerror = (event) => {
           setMicUI(false);
-          if(event.error === 'not-allowed'){
-            alert('Microphone permission was denied.');
-          }
         };
         recognition.onend = () => setMicUI(false);
         recognition.start();
       } catch(err){
         setMicUI(false);
-        alert('Could not start voice recognition: ' + err.message);
+        alert('Could not start microphone: ' + err.message);
       }
     }
 
@@ -646,24 +653,17 @@
       try{
         const perm = await SR.requestPermissions();
         if(perm.speechRecognition !== 'granted'){
-          alert('Microphone permission was denied.');
+          alert('Microphone permission denied.');
           return;
         }
         setMicUI(true);
-        SR.addListener('partialResults', (data) => {
-          const transcript = data.matches?.[0];
-          if(transcript){
-            const inputField = document.getElementById('textInput');
-            if(inputField) inputField.value = transcript;
-          }
-        });
-        const result = await SR.start({ language: 'en-US', popup: false, partialResults: true });
+        const result = await SR.start({ language: 'en-US', popup: false, partialResults: false });
         setMicUI(false);
         const said = result.matches?.[0];
         if(said) sendToEV(said, true);
       } catch(err){
         setMicUI(false);
-        alert('Native voice recognition failed: ' + err.message);
+        alert('Native voice recognition error: ' + err.message);
       }
     }
   </script>
