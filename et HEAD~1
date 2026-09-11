@@ -1,0 +1,36 @@
+[1mdiff --git a/www/index.html b/www/index.html[m
+[1mindex cf7722c..8ccc918 100755[m
+[1m--- a/www/index.html[m
+[1m+++ b/www/index.html[m
+[36m@@ -13,6 +13,11 @@[m
+       padding: 0;[m
+     }[m
+ [m
+[32m+[m
+[32m+[m[32m// Then use the 'apiKey' variable when initializing your AI client[m
+[32m+[m[32mconst ai = new GoogleGenAI({ apiKey: apiKey });[m
+[32m+[m
+[32m+[m
+     body {[m
+       width: 100vw;[m
+       min-height: 100vh;[m
+[36m@@ -400,7 +405,18 @@[m
+ [m
+   <script>[m
+     let history = [];[m
+[31m-    const apiKey = 'AQ.Ab8RN6Ib_SWgGfhZzXPBJcCYWc70ulRkR9ktcDR_L5VLWlQAgg[m
+[32m+[m[32m  // Put this at the top of your main script where initialization happens[m
+[32m+[m[32mlet apiKey = localStorage.getItem('gemini_api_key');[m
+[32m+[m[32mif (!apiKey) {[m
+[32m+[m[32m    apiKey = prompt("Enter your Gemini API Key:");[m
+[32m+[m[32m    if (apiKey) {[m
+[32m+[m[32m        localStorage.setItem('gemini_api_key', apiKey.trim());[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Then use the 'apiKey' variable when initializing your AI client[m
+[32m+[m[32mconst ai = new GoogleGenAI({ apiKey: apiKey });[m
+[32m+[m
+ ';[m
+ [m
+     async function addMessageAnimated(sender, text) {[m
