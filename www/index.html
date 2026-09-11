@@ -2,428 +2,417 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>E.V. Assistant — Brand New Day</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>E.V. — Personal AI Assistant</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Inter:wght@300;400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Inter:wght@300;400;500;600&display=swap');
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    :root{
+      --accent:#ff003c;
+      --accent-dim:rgba(255,0,60,0.35);
+      --bg-0:#060709;
+      --panel:rgba(18,19,26,0.85);
+      --panel-2:rgba(26,28,38,0.85);
+      --text-hi:#ffffff;
+      --text-mid:#a9adb8;
+      --text-low:#6b6f7a;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
+    * { box-sizing:border-box; margin:0; padding:0; }
 
-// Then use the 'apiKey' variable when initializing your AI client
-const ai = new GoogleGenAI({ apiKey: apiKey });
-
-
-    body {
-      width: 100vw;
-      min-height: 100vh;
-      overflow-x: hidden;
-      background-color: #060709;
-      color: #fff;
-      font-family: 'Inter', sans-serif;
-      padding-bottom: 80px;
+    body{
+      width:100vw; min-height:100vh; overflow-x:hidden;
+      background:
+        radial-gradient(ellipse 600px 300px at 20% 0%, rgba(255,0,60,0.08), transparent 60%),
+        var(--bg-0);
+      color:var(--text-hi);
+      font-family:'Inter', sans-serif;
+      padding-top: calc(10px + var(--safe-top));
+      padding-bottom: calc(84px + var(--safe-bottom));
     }
 
-    .dashboard-container {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 14px;
-      gap: 14px;
+    .dashboard-container{
+      display:flex; flex-direction:column;
+      width:100%; max-width:480px; margin:0 auto;
+      padding:14px; gap:14px;
     }
 
-    .header-ring {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background: linear-gradient(145deg, rgba(18, 19, 26, 0.9), rgba(10, 11, 15, 0.95));
-      border: 1px solid rgba(255, 0, 60, 0.35);
-      border-radius: 20px;
-      position: relative;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255, 0, 60, 0.1);
-      overflow: hidden;
+    /* ---------- Orb header ---------- */
+    .header-ring{
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:22px 20px; background:linear-gradient(145deg, rgba(18,19,26,0.9), rgba(10,11,15,0.95));
+      border:1px solid var(--accent-dim); border-radius:20px; position:relative;
+      box-shadow:0 8px 32px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,0,60,0.08);
+      overflow:hidden;
     }
 
-    .core-orb-container {
-      position: relative;
-      width: 80px;
-      height: 80px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-      cursor: pointer;
+    .core-orb-container{
+      position:relative; width:84px; height:84px;
+      display:flex; align-items:center; justify-content:center;
+      margin-bottom:14px; cursor:pointer;
+    }
+    .core-orb{
+      width:64px; height:64px; border-radius:50%;
+      background:radial-gradient(circle, #ff003c 0%, #4a0015 65%, #060709 100%);
+      box-shadow:0 0 25px rgba(255,0,60,0.6);
+      transition:transform 0.3s ease; z-index:2;
+    }
+    .core-orb-container.thinking .core-orb{ animation:orbPulse 1.2s infinite ease-in-out; }
+    .core-orb-container.listening .core-orb{ animation:orbPulse 0.7s infinite ease-in-out; }
+    .orb-ring{
+      position:absolute; width:84px; height:84px;
+      border:2px dashed rgba(255,0,60,0.4); border-radius:50%;
+      animation:spinRing 10s linear infinite;
+    }
+    .core-orb-container.thinking .orb-ring,
+    .core-orb-container.listening .orb-ring{
+      border-color:var(--accent);
+      animation:spinRing 2s linear infinite, glowRing 1.2s infinite alternate;
     }
 
-    .core-orb {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #ff003c 0%, #4a0015 65%, #060709 100%);
-      box-shadow: 0 0 25px rgba(255, 0, 60, 0.6);
-      transition: transform 0.3s ease;
-      z-index: 2;
+    @keyframes spinRing{ 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+    @keyframes orbPulse{
+      0%{ transform:scale(0.95); box-shadow:0 0 15px rgba(255,0,60,0.5); }
+      50%{ transform:scale(1.1); box-shadow:0 0 35px rgba(255,0,60,0.9); }
+      100%{ transform:scale(0.95); box-shadow:0 0 15px rgba(255,0,60,0.5); }
+    }
+    @keyframes glowRing{
+      0%{ box-shadow:0 0 5px rgba(255,0,60,0.2); }
+      100%{ box-shadow:0 0 20px rgba(255,0,60,0.8); }
     }
 
-    .core-orb-container.thinking .core-orb {
-      animation: orbPulse 1.2s infinite ease-in-out;
+    .status-indicators{
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+      font-family:'Orbitron', sans-serif; font-size:9px; letter-spacing:1.3px; color:var(--text-low);
+    }
+    .status-indicators span{
+      display:flex; align-items:center; gap:5px;
+      transition:color 0.3s, text-shadow 0.3s;
+    }
+    .status-indicators span::before{
+      content:""; width:5px; height:5px; border-radius:50%; background:var(--text-low);
+      transition:background 0.3s, box-shadow 0.3s;
+    }
+    .status-indicators span.on{ color:var(--accent); text-shadow:0 0 10px rgba(255,0,60,0.8); }
+    .status-indicators span.on::before{ background:var(--accent); box-shadow:0 0 8px var(--accent); }
+
+    /* ---------- Chat ---------- */
+    .chat-container{
+      background:var(--panel); border:1px solid rgba(255,0,60,0.22);
+      border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:12px;
+      backdrop-filter:blur(12px); box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    }
+    .chat-messages{
+      max-height:260px; overflow-y:auto; display:flex; flex-direction:column;
+      gap:10px; padding-right:6px; scroll-behavior:smooth;
+    }
+    .chat-messages::-webkit-scrollbar{ width:4px; }
+    .chat-messages::-webkit-scrollbar-thumb{ background:rgba(255,0,60,0.3); border-radius:4px; }
+
+    .message{
+      padding:11px 14px; border-radius:12px; font-size:13px; line-height:1.5;
+      word-break:break-word; animation:fadeIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+    @keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+    .message.user{
+      background:linear-gradient(135deg, rgba(255,0,60,0.2), rgba(255,0,60,0.1));
+      border:1px solid rgba(255,0,60,0.4); align-self:flex-end; max-width:85%;
+      border-bottom-right-radius:2px;
+    }
+    .message.ev{
+      background:rgba(26,28,38,0.95); border:1px solid rgba(255,255,255,0.08);
+      align-self:flex-start; max-width:85%; border-bottom-left-radius:2px;
+    }
+    .message.error{ border-color:rgba(255,150,0,0.4); background:rgba(60,30,0,0.4); }
+
+    .typing-dots{ display:inline-flex; gap:3px; margin-left:4px; vertical-align:middle; }
+    .typing-dots span{
+      width:4px; height:4px; border-radius:50%; background:var(--text-mid);
+      animation:dotPulse 1.2s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(2){ animation-delay:0.15s; }
+    .typing-dots span:nth-child(3){ animation-delay:0.3s; }
+    @keyframes dotPulse{ 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
+
+    .input-row{ display:flex; gap:8px; align-items:center; }
+    
+    .input-box-wrapper{
+      flex:1; display:flex; align-items:center; background:#0d0e13;
+      border:1px solid rgba(255,0,60,0.3); border-radius:10px; padding:0 6px 0 12px;
+      transition:border-color 0.3s, box-shadow 0.3s;
+    }
+    .input-box-wrapper:focus-within{
+      border-color:var(--accent); box-shadow:0 0 10px rgba(255,0,60,0.25);
     }
 
-    .orb-ring {
-      position: absolute;
-      width: 80px;
-      height: 80px;
-      border: 2px dashed rgba(255, 0, 60, 0.4);
-      border-radius: 50%;
-      animation: spinRing 10s linear infinite;
+    .input-box-wrapper input{
+      flex:1; background:transparent; border:none; padding:12px 0;
+      color:#fff; font-size:14px; outline:none;
     }
 
-    .core-orb-container.thinking .orb-ring {
-      border-color: #ff003c;
-      animation: spinRing 2s linear infinite, glowRing 1.2s infinite alternate;
+    .action-btn{
+      background:linear-gradient(135deg, #ff003c, #cc0030); color:#fff; border:none;
+      border-radius:10px; padding:0 16px; height:44px; font-weight:600; cursor:pointer;
+      transition:transform 0.15s, box-shadow 0.15s; flex-shrink:0;
     }
+    .action-btn:active{ transform:scale(0.95); }
+    .action-btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
-    @keyframes spinRing {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    .mic-btn{
+      background:transparent; border:none; color:var(--text-mid);
+      width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:all 0.3s; border-radius:8px; flex-shrink:0;
     }
+    .mic-btn:hover{ color:var(--text-hi); background:rgba(255,255,255,0.05); }
+    .mic-btn.active{
+      color:#00ff66 !important; background:rgba(0,255,102,0.15);
+      box-shadow:0 0 15px rgba(0,255,102,0.4); animation:micPulse 1s infinite alternate;
+    }
+    .mic-btn.unsupported{ opacity:0.4; }
+    @keyframes micPulse{ 0%{transform:scale(1);} 100%{transform:scale(1.08);} }
 
-    @keyframes orbPulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 15px rgba(255, 0, 60, 0.5); }
-      50% { transform: scale(1.1); box-shadow: 0 0 35px rgba(255, 0, 60, 0.9); }
-      100% { transform: scale(0.95); box-shadow: 0 0 15px rgba(255, 0, 60, 0.5); }
+    /* ---------- Widgets ---------- */
+    .widget-row{ display:flex; gap:10px; }
+    .card{
+      flex:1; background:var(--panel); border:1px solid rgba(255,0,60,0.18);
+      border-radius:16px; padding:14px; backdrop-filter:blur(10px);
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
     }
+    .card h3{
+      font-family:'Orbitron', sans-serif; font-size:10px; color:var(--accent);
+      text-transform:uppercase; margin-bottom:6px; letter-spacing:1px;
+    }
+    .card .value{ font-family:'Orbitron', sans-serif; font-size:18px; font-weight:600; }
+    .card .sub{ font-size:11px; color:var(--text-low); margin-top:4px; }
 
-    @keyframes glowRing {
-      0% { box-shadow: 0 0 5px rgba(255,0,60,0.2); }
-      100% { box-shadow: 0 0 20px rgba(255,0,60,0.8); }
+    .quick-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px; }
+    .quick-btn{
+      background:var(--panel-2); border:1px solid rgba(255,0,60,0.18);
+      border-radius:10px; padding:12px 10px; color:#fff; font-size:12px; font-weight:500;
+      text-align:center; cursor:pointer; transition:all 0.2s;
     }
+    .quick-btn:active{ background:rgba(255,0,60,0.2); border-color:var(--accent); transform:scale(0.97); }
 
-    .status-indicators {
-      display: flex;
-      gap: 12px;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 9px;
-      letter-spacing: 1.5px;
-      color: #666;
+    .bottom-nav{
+      position:fixed; bottom:0; left:0; width:100%;
+      background:rgba(10,11,15,0.95); border-top:1px solid rgba(255,255,255,0.08);
+      display:flex; justify-content:space-around;
+      padding:12px 0 calc(12px + var(--safe-bottom));
+      z-index:1000; backdrop-filter:blur(15px);
     }
+    .nav-item{
+      color:#777; font-family:'Orbitron', sans-serif; font-size:10px; letter-spacing:0.5px;
+      text-align:center; cursor:pointer; transition:color 0.3s;
+    }
+    .nav-item.active{ color:var(--accent); text-shadow:0 0 8px rgba(255,0,60,0.5); }
 
-    .status-indicators span {
-      transition: color 0.3s, text-shadow 0.3s;
+    /* ---------- API key modal ---------- */
+    .modal-overlay{
+      position:fixed; inset:0; background:rgba(4,4,6,0.88);
+      backdrop-filter:blur(6px); z-index:2000;
+      display:flex; align-items:center; justify-content:center; padding:20px;
     }
-
-    .status-indicators span.on {
-      color: #ff003c;
-      text-shadow: 0 0 10px rgba(255, 0, 60, 0.8);
+    .modal-overlay.hidden{ display:none; }
+    .modal-box{
+      width:100%; max-width:400px; background:#0d0e13;
+      border:1px solid rgba(255,0,60,0.35); border-radius:18px; padding:24px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
     }
-
-    .chat-container {
-      background: rgba(18, 19, 26, 0.85);
-      border: 1px solid rgba(255, 0, 60, 0.25);
-      border-radius: 16px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    .modal-box h2{ font-family:'Orbitron', sans-serif; font-size:16px; margin-bottom:8px; }
+    .modal-box p{ font-size:12.5px; color:var(--text-mid); line-height:1.6; margin-bottom:16px; }
+    .modal-box a{ color:var(--accent); }
+    .modal-box input{
+      width:100%; background:#060709; border:1px solid rgba(255,0,60,0.3);
+      border-radius:10px; padding:12px 14px; color:#fff; font-size:13px;
+      outline:none; margin-bottom:12px;
     }
-
-    .chat-messages {
-      max-height: 220px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding-right: 6px;
-      scroll-behavior: smooth;
-    }
-
-    .chat-messages::-webkit-scrollbar {
-      width: 4px;
-    }
-    .chat-messages::-webkit-scrollbar-thumb {
-      background: rgba(255, 0, 60, 0.3);
-      border-radius: 4px;
-    }
-
-    .message {
-      padding: 11px 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      word-break: break-word;
-      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message.user {
-      background: linear-gradient(135deg, rgba(255, 0, 60, 0.2), rgba(255, 0, 60, 0.1));
-      border: 1px solid rgba(255, 0, 60, 0.4);
-      align-self: flex-end;
-      max-width: 85%;
-      border-bottom-right-radius: 2px;
-    }
-
-    .message.ev {
-      background: rgba(26, 28, 38, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      align-self: flex-start;
-      max-width: 85%;
-      border-bottom-left-radius: 2px;
-    }
-
-    .message.typing-indicator span {
-      display: inline-block;
-      animation: blinkDots 1.4s infinite steps(4, end);
-    }
-
-    @keyframes blinkDots {
-      0% { content: '.'; }
-      33% { content: '. .'; }
-      66% { content: '. . .'; }
-    }
-
-    .input-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .input-row input {
-      flex: 1;
-      background: #0d0e13;
-      border: 1px solid rgba(255, 0, 60, 0.3);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: #fff;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-
-    .input-row input:focus {
-      border-color: #ff003c;
-      box-shadow: 0 0 10px rgba(255, 0, 60, 0.25);
-    }
-
-    .action-btn {
-      background: linear-gradient(135deg, #ff003c, #cc0030);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      padding: 0 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .action-btn:active {
-      transform: scale(0.95);
-    }
-
-    .mic-btn {
-      background: rgba(26, 28, 38, 0.9);
-      border: 1px solid rgba(255, 0, 60, 0.4);
-      border-radius: 10px;
-      width: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .mic-btn.active {
-      background: #00ff66 !important;
-      border-color: #00ff66;
-      box-shadow: 0 0 15px rgba(0, 255, 102, 0.6);
-      animation: micPulse 1s infinite alternate;
-    }
-
-    @keyframes micPulse {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.08); }
-    }
-
-    .widget-row {
-      display: flex;
-      gap: 10px;
-    }
-
-    .card {
-      flex: 1;
-      background: rgba(18, 19, 26, 0.85);
-      border: 1px solid rgba(255, 0, 60, 0.2);
-      border-radius: 16px;
-      padding: 14px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    }
-
-    .card h3 {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
-      color: #ff003c;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-      letter-spacing: 1px;
-    }
-
-    .card .value {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-    }
-
-    .quick-btn {
-      background: rgba(26, 28, 38, 0.7);
-      border: 1px solid rgba(255, 0, 60, 0.2);
-      border-radius: 10px;
-      padding: 12px 10px;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 500;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .quick-btn:active {
-      background: rgba(255, 0, 60, 0.2);
-      border-color: #ff003c;
-      transform: scale(0.97);
-    }
-
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(10, 11, 15, 0.95);
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      display: flex;
-      justify-content: space-around;
-      padding: 12px 0;
-      z-index: 1000;
-      backdrop-filter: blur(15px);
-    }
-
-    .nav-item {
-      color: #777;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 10px;
-      letter-spacing: 0.5px;
-      text-align: center;
-      cursor: pointer;
-      text-decoration: none;
-      transition: color 0.3s;
-    }
-
-    .nav-item.active {
-      color: #ff003c;
-      text-shadow: 0 0 8px rgba(255,0,60,0.5);
-    }
+    .modal-box input:focus{ border-color:var(--accent); }
+    .modal-box .modal-actions{ display:flex; gap:8px; }
+    .modal-box .action-btn{ flex:1; padding:12px; }
+    .modal-note{ font-size:10.5px; color:var(--text-low); margin-top:10px; line-height:1.5; }
   </style>
 </head>
 <body>
 
   <div class="dashboard-container">
     <div class="header-ring">
-      <div class="core-orb-container" id="orbContainer" onclick="toggleMicrophone()" title="Tap to toggle voice recognition">
+      <div class="core-orb-container" id="orbContainer" onclick="toggleMicrophone()" title="Tap to talk">
         <div class="orb-ring"></div>
         <div class="core-orb"></div>
       </div>
       <div class="status-indicators">
-        <span id="stListening">LISTEN</span> • 
-        <span id="stThinking">THINK</span> • 
-        <span id="stProcessing">PROCESS</span> • 
+        <span id="stListening">LISTEN</span>
+        <span id="stThinking">THINK</span>
+        <span id="stProcessing">PROCESS</span>
         <span id="stReady" class="on">READY</span>
       </div>
     </div>
 
     <div class="chat-container">
       <div class="chat-messages" id="chatMessages">
-        <div class="message ev"><strong>E.V.:</strong> Systems online, Durai. Brand New Day interface initialized. Ready for your command.</div>
+        <div class="message ev"><strong>E.V.:</strong> Systems online. Ready for your command.</div>
       </div>
       <div class="input-row">
-        <input type="text" id="textInput" placeholder="Ask E.V. anything..." onkeydown="if(event.key==='Enter') sendToEV(this.value)">
-        <button class="action-btn" onclick="sendToEV(document.getElementById('textInput').value)">Send</button>
-        <button class="mic-btn" id="micBtn" onclick="toggleMicrophone()">🎙️</button>
+        <div class="input-box-wrapper">
+          <input type="text" id="textInput" placeholder="Ask E.V. anything..." onkeydown="if(event.key==='Enter') sendToEV(this.value, false)">
+          <button class="mic-btn" id="micBtn" onclick="toggleMicrophone()" title="Voice input">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </button>
+        </div>
+        <button class="action-btn" id="sendBtn" onclick="sendToEV(document.getElementById('textInput').value, false)">Send</button>
       </div>
     </div>
 
     <div class="widget-row">
       <div class="card">
-        <h3>Weather • Chennai</h3>
-        <div class="value">28°C</div>
-        <div style="font-size:11px; color:#888; margin-top:4px;">Clear Skies</div>
+        <h3>Weather</h3>
+        <div class="value" id="weatherTemp">--°</div>
+        <div class="sub" id="weatherCond">Locating…</div>
       </div>
       <div class="card">
-        <h3>EV Status</h3>
+        <h3>Battery</h3>
         <div class="value battery-value">--%</div>
-        <div class="ev-status-text" style="font-size:11px; color:#888; margin-top:4px;">Checking...</div>
+        <div class="sub ev-status-text">Checking...</div>
       </div>
     </div>
 
     <div class="card">
       <h3>Quick Actions</h3>
-      <div class="quick-grid" style="margin-top: 8px;">
-        <div class="quick-btn" onclick="sendToEV('Open maps and navigate')">🗺️ Navigate</div>
-        <div class="quick-btn" onclick="sendToEV('Play a song on YouTube')">▶️ YouTube</div>
-        <div class="quick-btn" onclick="sendToEV('Check my device status')">⚡ System Info</div>
-        <div class="quick-btn" onclick="sendToEV('Tell me a quick tech fact')">💡 Tech Fact</div>
+      <div class="quick-grid">
+        <div class="quick-btn" onclick="sendToEV('Open maps and navigate', false)">🗺️ Navigate</div>
+        <div class="quick-btn" onclick="sendToEV('Play a song on YouTube', false)">▶️ YouTube</div>
+        <div class="quick-btn" onclick="sendToEV('Check my device status', false)">⚡ System Info</div>
+        <div class="quick-btn" onclick="sendToEV('Tell me a quick tech fact', false)">💡 Tech Fact</div>
       </div>
     </div>
   </div>
 
   <div class="bottom-nav">
     <div class="nav-item active">HOME</div>
-    <div class="nav-item" onclick="sendToEV('Give me a status summary.')">ASSISTANT</div>
-    <div class="nav-item" onclick="window.open('https://maps.google.com', '_blank')">MAPS</div>
-    <div class="nav-item" onclick="window.open('https://www.youtube.com', '_blank')">YOUTUBE</div>
-    <div class="nav-item" onclick="alert('E.V. v1.2 • Brand New Day Edition')">SETTINGS</div>
+    <div class="nav-item" onclick="sendToEV('Give me a status summary.', false)">ASSISTANT</div>
+    <div class="nav-item" onclick="openExternal('https://maps.google.com')">MAPS</div>
+    <div class="nav-item" onclick="openExternal('https://www.youtube.com')">YOUTUBE</div>
+    <div class="nav-item" onclick="openSettings()">SETTINGS</div>
+  </div>
+
+  <!-- API key modal -->
+  <div class="modal-overlay hidden" id="keyModal">
+    <div class="modal-box">
+      <h2>Connect your Gemini API key</h2>
+      <p>
+        E.V. needs a Gemini API key to think. Your key stays on this device only —
+        it's never written into the app's code or sent anywhere but Google's API.
+        Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
+      </p>
+      <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key">
+      <div class="modal-actions">
+        <button class="action-btn" onclick="saveApiKey()">Save & continue</button>
+      </div>
+      <div class="modal-note">You can update or clear this anytime from the SETTINGS tab.</div>
+    </div>
   </div>
 
   <script>
-    let history = [];
-  // Put this at the top of your main script where initialization happens
-let apiKey = localStorage.getItem('gemini_api_key');
-if (!apiKey) {
-    apiKey = prompt("Enter your Gemini API Key:");
-    if (apiKey) {
-        localStorage.setItem('gemini_api_key', apiKey.trim());
+    /* ============================================================
+       0) API KEY
+       ============================================================ */
+    const KEY_STORAGE = 'ev_gemini_api_key';
+    let apiKey = localStorage.getItem(KEY_STORAGE) || '';
+    const keyModal = document.getElementById('keyModal');
+
+    function showKeyModal(){ keyModal.classList.remove('hidden'); }
+    function hideKeyModal(){ keyModal.classList.add('hidden'); }
+
+    function saveApiKey(){
+      const val = document.getElementById('apiKeyInput').value.trim();
+      if(!val){ return; }
+      apiKey = val;
+      localStorage.setItem(KEY_STORAGE, val);
+      document.getElementById('apiKeyInput').value = '';
+      hideKeyModal();
     }
-}
 
-// Then use the 'apiKey' variable when initializing your AI client
-const ai = new GoogleGenAI({ apiKey: apiKey });
+    function openSettings(){
+      document.getElementById('apiKeyInput').placeholder = apiKey
+        ? 'Key saved — paste a new one to replace it'
+        : 'Paste your Gemini API key';
+      showKeyModal();
+    }
 
-';
+    if(!apiKey) showKeyModal();
 
-    async function addMessageAnimated(sender, text) {
+    /* ============================================================
+       1) NATIVE / CAPACITOR DETECTION
+       ============================================================ */
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+    async function openExternal(url){
+      if(isNative && window.Capacitor?.Plugins?.Browser){
+        try{ await window.Capacitor.Plugins.Browser.open({ url }); return; }catch(e){}
+      }
+      window.open(url, '_blank');
+    }
+
+    /* ============================================================
+       2) TEXT-TO-SPEECH (TTS)
+       ============================================================ */
+    function speakText(text){
+      if('speechSynthesis' in window){
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    /* ============================================================
+       3) CHAT & FLASH MODEL (Updated to gemini-3.6-flash)
+       ============================================================ */
+    let history = [];
+    const MODEL = 'gemini-3.6-flash';
+
+    function scrollChatToEnd(){
+      const el = document.getElementById('chatMessages');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function addUserMessage(text){
       const chatMessages = document.getElementById('chatMessages');
-      if (!chatMessages) return;
+      const div = document.createElement('div');
+      div.className = 'message user';
+      div.innerHTML = `<strong>You:</strong> ${escapeHtml(text)}`;
+      chatMessages.appendChild(div);
+      scrollChatToEnd();
+    }
+
+    function addTypingIndicator(){
+      const chatMessages = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'message ev';
+      div.id = 'typingIndicator';
+      div.innerHTML = `<strong>E.V.:</strong> <span class="typing-dots"><span></span><span></span><span></span></span>`;
+      chatMessages.appendChild(div);
+      scrollChatToEnd();
+    }
+
+    function escapeHtml(str){
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    async function addMessageAnimated(sender, text, isError){
+      const chatMessages = document.getElementById('chatMessages');
       const msgDiv = document.createElement('div');
-      msgDiv.className = `message ${sender}`;
+      msgDiv.className = `message ${sender}` + (isError ? ' error' : '');
       chatMessages.appendChild(msgDiv);
 
       if (sender === 'ev') {
@@ -433,52 +422,42 @@ const ai = new GoogleGenAI({ apiKey: apiKey });
         while (i < text.length) {
           span.textContent += text.charAt(i);
           i++;
-          chatMessages.scrollTop = chatMessages.scrollHeight;
-          await new Promise(r => setTimeout(r, 12));
+          scrollChatToEnd();
+          await new Promise(r => setTimeout(r, 10));
         }
       } else {
-        msgDiv.innerHTML = `<strong>Durai:</strong> ${text}`;
+        msgDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(text)}`;
       }
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      scrollChatToEnd();
     }
 
-    async function sendToEV(message) {
-      if (!message || !message.trim()) return;
-      
-      const chatMessages = document.getElementById('chatMessages');
-      const userDiv = document.createElement('div');
-      userDiv.className = 'message user';
-      userDiv.innerHTML = `<strong>Durai:</strong> ${message}`;
-      chatMessages.appendChild(userDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+    function setStatus(state){
+      const map = { listening:'stListening', thinking:'stThinking', processing:'stProcessing', ready:'stReady' };
+      Object.values(map).forEach(id => document.getElementById(id)?.classList.remove('on'));
+      if(state && map[state]) document.getElementById(map[state]).classList.add('on');
+    }
 
+    async function sendToEV(message, isVoice = false) {
+      if (!message || !message.trim()) return;
+
+      if(!apiKey){ showKeyModal(); return; }
+
+      addUserMessage(message);
       const textInput = document.getElementById('textInput');
       if (textInput) textInput.value = '';
 
-      const stThinking = document.getElementById('stThinking');
-      const stProcessing = document.getElementById('stProcessing');
-      const stReady = document.getElementById('stReady');
       const orbContainer = document.getElementById('orbContainer');
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
 
-      if(stReady) stReady.classList.remove('on');
-      if(stThinking) stThinking.classList.add('on');
-      if(orbContainer) orbContainer.classList.add('thinking');
-
-      // Add waiting typing indicator bubble
-      const typingDiv = document.createElement('div');
-      typingDiv.className = 'message ev typing-indicator';
-      typingDiv.id = 'typingIndicator';
-      typingDiv.innerHTML = `<strong>E.V.:</strong> <span>Processing request . . .</span>`;
-      chatMessages.appendChild(typingDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      setStatus('thinking');
+      orbContainer.classList.add('thinking');
+      addTypingIndicator();
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        const contents = history.map(h => ({
-          role: h.role === 'model' ? 'model' : 'user',
-          parts: h.parts
-        }));
+        const contents = history.map(h => ({ role: h.role, parts: h.parts }));
         contents.push({ role: 'user', parts: [{ text: message }] });
 
         const res = await fetch(url, {
@@ -486,20 +465,28 @@ const ai = new GoogleGenAI({ apiKey: apiKey });
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: "You are E.V., an advanced personal AI assistant styled under the Spider-Man Brand New Day universe for Durai, living in Chennai, India, studying in the 12th grade. Keep your tone sharp, helpful, friendly, and resourceful. If the user asks to open an app, navigate, or check something, keep your text reply brief and execute the action." }]
+              parts: [{ text: "You are E.V., a personal AI assistant for Durai, a 12th-grade student in Chennai, India. Keep your tone sharp, helpful, friendly, and resourceful. If asked to open an app, navigate, or check something, keep the reply brief since the action happens separately." }]
             },
-            contents: contents
+            contents
           })
         });
 
-        const data = await res.json();
-        
-        // Remove typing indicator bubble
         document.getElementById('typingIndicator')?.remove();
 
-        if(stThinking) stThinking.classList.remove('on');
-        if(orbContainer) orbContainer.classList.remove('thinking');
-        if(stProcessing) stProcessing.classList.add('on');
+        if(!res.ok){
+          const errBody = await res.json().catch(()=>({}));
+          const msg = errBody.error?.message || `Request failed (HTTP ${res.status})`;
+          if(res.status === 400 || res.status === 403){
+            await addMessageAnimated('ev', `Key rejected: ${msg}. Check it in SETTINGS.`, true);
+          } else {
+            await addMessageAnimated('ev', `Error: ${msg}`, true);
+          }
+          return;
+        }
+
+        const data = await res.json();
+        setStatus('processing');
+        orbContainer.classList.remove('thinking');
 
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (reply) {
@@ -507,118 +494,176 @@ const ai = new GoogleGenAI({ apiKey: apiKey });
           history.push({ role: 'user', parts: [{ text: message }] });
           history.push({ role: 'model', parts: [{ text: reply }] });
 
-          // Mobile Control Triggers with proper YouTube priority handling
+          if(isVoice){
+            speakText(reply);
+          }
+
           const lowerMsg = message.toLowerCase();
           if (lowerMsg.includes('navigate') || lowerMsg.includes('map') || lowerMsg.includes('directions')) {
-            window.open('https://maps.google.com', '_blank');
-          } else if (lowerMsg.includes('youtube') || lowerMsg.includes('yt')) {
+            openExternal('https://maps.google.com');
+          } else if (lowerMsg.includes('youtube') || lowerMsg.includes(' yt ')) {
             const query = message.replace(/play|on|to|youtube|yt|search/gi, '').trim();
-            if (query) {
-              window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
-            } else {
-              window.open('https://www.youtube.com', '_blank');
-            }
+            openExternal(query ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}` : 'https://www.youtube.com');
           } else if (lowerMsg.includes('call')) {
             window.location.href = 'tel:';
           } else if (lowerMsg.includes('spotify') || (lowerMsg.includes('music') && !lowerMsg.includes('youtube'))) {
-            window.open('https://open.spotify.com', '_blank');
+            openExternal('https://open.spotify.com');
           }
           if (navigator.vibrate) navigator.vibrate(50);
         } else {
-          await addMessageAnimated('ev', "Error: " + (data.error?.message || "System anomaly detected."));
+          await addMessageAnimated('ev', data.candidates?.[0]?.finishReason
+            ? `Response blocked (${data.candidates[0].finishReason}).`
+            : "No response came back — try rephrasing.", true);
         }
       } catch (err) {
         document.getElementById('typingIndicator')?.remove();
-        if(stThinking) stThinking.classList.remove('on');
-        if(orbContainer) orbContainer.classList.remove('thinking');
-        await addMessageAnimated('ev', "Connection error: " + err.message);
+        orbContainer.classList.remove('thinking');
+        await addMessageAnimated('ev', "Connection error: " + err.message, true);
+      } finally {
+        sendBtn.disabled = false;
+        setStatus('ready');
       }
-      setTimeout(() => {
-        if(stProcessing) stProcessing.classList.remove('on');
-        if(stReady) stReady.classList.add('on');
-      }, 600);
     }
 
+    /* ============================================================
+       4) BATTERY
+       ============================================================ */
     async function initBattery() {
       if ('getBattery' in navigator) {
-        const battery = await navigator.getBattery();
-        const updateBatteryUI = () => {
-          const level = Math.round(battery.level * 100);
-          const charging = battery.charging;
-          document.querySelectorAll('.battery-value').forEach(el => el.textContent = level + '%');
-          const statusEl = document.querySelector('.ev-status-text');
-          if (statusEl) statusEl.textContent = charging ? 'Charging' : 'Not Charging';
-        };
-        updateBatteryUI();
-        battery.addEventListener('levelchange', updateBatteryUI);
-        battery.addEventListener('chargingchange', updateBatteryUI);
-      } else {
-        document.querySelectorAll('.battery-value').forEach(el => el.textContent = '100%');
-        const statusEl = document.querySelector('.ev-status-text');
-        if (statusEl) statusEl.textContent = 'Ready';
+        try{
+          const battery = await navigator.getBattery();
+          const updateBatteryUI = () => {
+            const level = Math.round(battery.level * 100);
+            document.querySelectorAll('.battery-value').forEach(el => el.textContent = level + '%');
+            const statusEl = document.querySelector('.ev-status-text');
+            if (statusEl) statusEl.textContent = battery.charging ? 'Charging' : 'Not charging';
+          };
+          updateBatteryUI();
+          battery.addEventListener('levelchange', updateBatteryUI);
+          battery.addEventListener('chargingchange', updateBatteryUI);
+          return;
+        }catch(e){}
       }
+      document.querySelectorAll('.battery-value').forEach(el => el.textContent = '—');
+      const statusEl = document.querySelector('.ev-status-text');
+      if (statusEl) statusEl.textContent = 'Not available on this device';
     }
     window.addEventListener('DOMContentLoaded', initBattery);
 
+    /* ============================================================
+       5) WEATHER
+       ============================================================ */
+    async function initWeather(){
+      if(!navigator.geolocation){
+        document.getElementById('weatherCond').textContent = 'Location unavailable';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(async pos => {
+        try{
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m`);
+          const data = await res.json();
+          document.getElementById('weatherTemp').textContent = Math.round(data.current.temperature_2m) + '°C';
+          document.getElementById('weatherCond').textContent = 'Live conditions';
+        }catch(e){
+          document.getElementById('weatherCond').textContent = 'Weather unavailable';
+        }
+      }, () => {
+        document.getElementById('weatherCond').textContent = 'Location permission denied';
+      });
+    }
+    window.addEventListener('DOMContentLoaded', initWeather);
+
+    /* ============================================================
+       6) MIC & VOICE INPUT
+       ============================================================ */
     let recognition = null;
     let isListening = false;
 
-    function toggleMicrophone() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      
-      if (!SpeechRecognition) {
-        alert("Speech Recognition is not supported directly here. Please use Spck Editor's live preview tab or an active local server view.");
+    function setMicUI(active){
+      isListening = active;
+      document.getElementById('micBtn')?.classList.toggle('active', active);
+      document.getElementById('orbContainer')?.classList.toggle('listening', active);
+      setStatus(active ? 'listening' : 'ready');
+    }
+
+    async function toggleMicrophone(){
+      if(isListening){
+        await stopListening();
         return;
       }
+      if(isNative && window.Capacitor?.Plugins?.SpeechRecognition){
+        await startNativeListening();
+      } else {
+        startBrowserListening();
+      }
+    }
 
-      if (isListening) {
-        if (recognition) {
-          try { recognition.stop(); } catch(e) {}
-        }
-        isListening = false;
-        document.getElementById('micBtn')?.classList.remove('active');
-        document.getElementById('stListening')?.classList.remove('on');
+    function startBrowserListening(){
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!SpeechRecognitionAPI){
+        document.getElementById('micBtn')?.classList.add('unsupported');
+        alert('Voice input needs Chrome over HTTPS or localhost.');
         return;
       }
-
-      try {
-        recognition = new SpeechRecognition();
+      try{
+        recognition = new SpeechRecognitionAPI();
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
-        recognition.onstart = () => {
-          isListening = true;
-          document.getElementById('micBtn')?.classList.add('active');
-          document.getElementById('stListening')?.classList.add('on');
-        };
-
+        recognition.onstart = () => setMicUI(true);
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           const inputField = document.getElementById('textInput');
           if (inputField) inputField.value = transcript;
-          sendToEV(transcript);
+          sendToEV(transcript, true);
         };
-
         recognition.onerror = (event) => {
-          console.warn("Speech error:", event.error);
-          isListening = false;
-          document.getElementById('micBtn')?.classList.remove('active');
-          document.getElementById('stListening')?.classList.remove('on');
+          setMicUI(false);
+          if(event.error === 'not-allowed'){
+            alert('Microphone permission was denied.');
+          }
         };
-
-        recognition.onend = () => {
-          isListening = false;
-          document.getElementById('micBtn')?.classList.remove('active');
-          document.getElementById('stListening')?.classList.remove('on');
-        };
-
+        recognition.onend = () => setMicUI(false);
         recognition.start();
-      } catch (err) {
-        isListening = false;
-        document.getElementById('micBtn')?.classList.remove('active');
-        document.getElementById('stListening')?.classList.remove('on');
-        alert("Microphone execution requires running inside Spck Editor's preview tab or a web server context.");
+      } catch(err){
+        setMicUI(false);
+        alert('Could not start voice recognition: ' + err.message);
+      }
+    }
+
+    function stopListening(){
+      if(recognition){ try{ recognition.stop(); }catch(e){} }
+      if(isNative && window.Capacitor?.Plugins?.SpeechRecognition){
+        window.Capacitor.Plugins.SpeechRecognition.stop().catch(()=>{});
+      }
+      setMicUI(false);
+    }
+
+    async function startNativeListening(){
+      const SR = window.Capacitor.Plugins.SpeechRecognition;
+      try{
+        const perm = await SR.requestPermissions();
+        if(perm.speechRecognition !== 'granted'){
+          alert('Microphone permission was denied.');
+          return;
+        }
+        setMicUI(true);
+        SR.addListener('partialResults', (data) => {
+          const transcript = data.matches?.[0];
+          if(transcript){
+            const inputField = document.getElementById('textInput');
+            if(inputField) inputField.value = transcript;
+          }
+        });
+        const result = await SR.start({ language: 'en-US', popup: false, partialResults: true });
+        setMicUI(false);
+        const said = result.matches?.[0];
+        if(said) sendToEV(said, true);
+      } catch(err){
+        setMicUI(false);
+        alert('Native voice recognition failed: ' + err.message);
       }
     }
   </script>
