@@ -138,7 +138,7 @@
     @keyframes dotPulse{ 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
 
     .input-row{ display:flex; gap:8px; align-items:center; }
-    
+
     .input-box-wrapper{
       flex:1; display:flex; align-items:center; background:#0d0e13;
       border:1px solid rgba(255,0,60,0.3); border-radius:10px; padding:0 6px 0 12px;
@@ -172,6 +172,7 @@
       box-shadow:0 0 15px rgba(0,255,102,0.4); animation:micPulse 1s infinite alternate;
     }
     .mic-btn.unsupported{ opacity:0.4; }
+    .mic-btn:disabled{ opacity:0.35; cursor:not-allowed; }
     @keyframes micPulse{ 0%{transform:scale(1);} 100%{transform:scale(1.08);} }
 
     /* ---------- Widgets ---------- */
@@ -287,9 +288,9 @@
     <div class="card">
       <h3>Quick Actions</h3>
       <div class="quick-grid">
-        <div class="quick-btn" onclick="sendToEV('Open maps and navigate', false)">🗺️ Navigate</div>
-        <div class="quick-btn" onclick="sendToEV('Play a song on YouTube', false)">▶️ YouTube</div>
-        <div class="quick-btn" onclick="sendToEV('Open Spotify', false)">🎵 Spotify</div>
+        <div class="quick-btn" onclick="handleQuickAction('maps')">🗺️ Navigate</div>
+        <div class="quick-btn" onclick="handleQuickAction('youtube')">▶️ YouTube</div>
+        <div class="quick-btn" onclick="handleQuickAction('spotify')">🎵 Spotify</div>
         <div class="quick-btn" onclick="sendToEV('Tell me a quick tech fact', false)">💡 Tech Fact</div>
       </div>
     </div>
@@ -298,8 +299,8 @@
   <div class="bottom-nav">
     <div class="nav-item active">HOME</div>
     <div class="nav-item" onclick="sendToEV('Give me a status summary.', false)">ASSISTANT</div>
-    <div class="nav-item" onclick="openExternal('https://maps.google.com')">MAPS</div>
-    <div class="nav-item" onclick="openExternal('https://www.youtube.com')">YOUTUBE</div>
+    <div class="nav-item" onclick="handleQuickAction('maps')">MAPS</div>
+    <div class="nav-item" onclick="handleQuickAction('youtube')">YOUTUBE</div>
     <div class="nav-item" onclick="openSettings()">SETTINGS</div>
   </div>
 
@@ -317,6 +318,7 @@
         <button class="action-btn" onclick="saveApiKey()">Save & continue</button>
       </div>
       <div class="modal-note">You can update or clear this anytime from the SETTINGS tab.</div>
+      <div class="modal-note"><a href="#" onclick="hideKeyModal(); return false;">Skip for now — voice/app-launch commands still work, chat replies won't until you add a key.</a></div>
     </div>
   </div>
 
@@ -350,15 +352,111 @@
     if(!apiKey) showKeyModal();
 
     /* ============================================================
-       1) NATIVE / APP INTENT & BROWSERS
+       1) NATIVE PLATFORM DETECTION + LAUNCHING OTHER APPS
+       ------------------------------------------------------------
+       Scope, by design: this only ever launches an app the user
+       named, in the foreground, via the OS's own "open this app"
+       mechanism (AppLauncher). It never reads another app's data,
+       runs in the background, or drives another app's UI — that
+       would require an AccessibilityService, which is deliberately
+       out of scope here.
        ============================================================ */
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
+    // Known apps: Android package name, a URL-scheme fallback (used in
+    // plain browser contexts, or if canOpenUrl can't see the package),
+    // and an optional website fallback so E.V. can still do something
+    // useful if the app isn't installed.
+    const APP_REGISTRY = {
+      instagram: { pkg: 'com.instagram.android', scheme: 'instagram://app', web: 'https://www.instagram.com' },
+      gmail:     { pkg: 'com.google.android.gm', scheme: 'googlegmail://', web: 'https://mail.google.com' },
+      whatsapp:  { pkg: 'com.whatsapp', scheme: 'whatsapp://send', web: 'https://web.whatsapp.com' },
+      spotify:   { pkg: 'com.spotify.music', scheme: 'spotify://', web: 'https://open.spotify.com' },
+      youtube:   { pkg: 'com.google.android.youtube', scheme: 'vnd.youtube://', web: 'https://www.youtube.com' },
+      maps:      { pkg: 'com.google.android.apps.maps', scheme: 'geo:0,0?q=', web: 'https://maps.google.com' },
+      facebook:  { pkg: 'com.facebook.katana', scheme: 'fb://', web: 'https://www.facebook.com' },
+      twitter:   { pkg: 'com.twitter.android', scheme: 'twitter://', web: 'https://twitter.com' },
+      x:         { pkg: 'com.twitter.android', scheme: 'twitter://', web: 'https://twitter.com' },
+      telegram:  { pkg: 'org.telegram.messenger', scheme: 'tg://', web: 'https://web.telegram.org' },
+      netflix:   { pkg: 'com.netflix.mediaclient', scheme: 'nflx://', web: 'https://www.netflix.com' },
+      chrome:    { pkg: 'com.android.chrome', scheme: null, web: null },
+      playstore: { pkg: 'com.android.vending', scheme: 'market://', web: null }
+    };
+
+    // Strip filler words so "open Instagram please" / "launch the Gmail app" -> "instagram" / "gmail".
+    const APP_NAME_FILLER = /\b(open|launch|start|please|the|app|for me|can you)\b/gi;
+    function normalizeAppName(text){
+      return text.toLowerCase().replace(APP_NAME_FILLER, '').replace(/[^a-z0-9]/g, '').trim();
+    }
+
+    // Pulls an app name out of "open X" / "launch X" / "start X" phrasing.
+    function extractAppOpenCommand(text){
+      const m = text.trim().match(/^(?:open|launch|start)\s+(.+)/i);
+      return m ? m[1] : null;
+    }
+
     async function openExternal(url){
       if(isNative && window.Capacitor?.Plugins?.Browser){
-        try{ await window.Capacitor.Plugins.Browser.open({ url }); return; }catch(e){}
+        try{ await window.Capacitor.Plugins.Browser.open({ url }); return true; }catch(e){}
       }
       window.open(url, '_blank');
+      return true;
+    }
+
+    // Launches an installed app by name. Returns true/false so callers
+    // can decide what (if anything) to tell the user.
+    async function openApp(rawName){
+      const key = normalizeAppName(rawName);
+      const entry = APP_REGISTRY[key];
+      if(!entry){
+        await addMessageAnimated('ev', `I don't know "${rawName.trim()}" yet — I can only open apps I have a package name for.`, true);
+        return false;
+      }
+
+      if(isNative && window.Capacitor?.Plugins?.AppLauncher){
+        const { AppLauncher } = window.Capacitor.Plugins;
+        try{
+          const pkgCheck = await AppLauncher.canOpenUrl({ url: entry.pkg });
+          if(pkgCheck?.value){
+            await AppLauncher.openUrl({ url: entry.pkg });
+            return true;
+          }
+          if(entry.scheme){
+            const schemeCheck = await AppLauncher.canOpenUrl({ url: entry.scheme });
+            if(schemeCheck?.value){
+              await AppLauncher.openUrl({ url: entry.scheme });
+              return true;
+            }
+          }
+          if(entry.web){
+            await addMessageAnimated('ev', `${rawName.trim()} doesn't look installed — opening its website instead.`);
+            await openExternal(entry.web);
+            return true;
+          }
+          await addMessageAnimated('ev', `${rawName.trim()} doesn't seem to be installed.`, true);
+          return false;
+        }catch(err){
+          await addMessageAnimated('ev', `Couldn't open ${rawName.trim()}: ${err.message}`, true);
+          return false;
+        }
+      }
+
+      // Browser / dev-server fallback: try the URL scheme directly, then the website.
+      if(entry.scheme){
+        window.location.href = entry.scheme;
+        return true;
+      }
+      if(entry.web){
+        await openExternal(entry.web);
+        return true;
+      }
+      await addMessageAnimated('ev', `Opening other apps only works from the installed app, not a browser.`, true);
+      return false;
+    }
+
+    async function handleQuickAction(key){
+      const opened = await openApp(key);
+      if(opened && navigator.vibrate) navigator.vibrate(30);
     }
 
     /* ============================================================
@@ -375,10 +473,16 @@
     }
 
     /* ============================================================
-       3) CHAT & GEMINI 3.6 FLASH MODEL
+       3) CHAT & GEMINI MODEL
        ============================================================ */
     let history = [];
-    const MODEL = 'gemini-3.6-flash';
+    // 'gemini-3.6-flash' is not a real model id — every request would
+    // 404. 'gemini-flash-latest' always resolves to Google's current
+    // recommended flash model; swap in a dated model id instead if you
+    // need output to stay fixed across future Google-side updates.
+    const MODEL = 'gemini-flash-latest';
+
+    let isSending = false; // guards against overlapping requests (e.g. tapping mic mid-send)
 
     function scrollChatToEnd(){
       const el = document.getElementById('chatMessages');
@@ -395,6 +499,7 @@
     }
 
     function addTypingIndicator(){
+      document.getElementById('typingIndicator')?.remove(); // never leave a stale one behind
       const chatMessages = document.getElementById('chatMessages');
       const div = document.createElement('div');
       div.className = 'message ev';
@@ -438,18 +543,60 @@
       if(state && map[state]) document.getElementById(map[state]).classList.add('on');
     }
 
+    // Secondary, best-effort intent detection layered on top of the LLM's
+    // own reply — opens a helper app if the message clearly asked for one.
+    async function runIntentActions(message){
+      const lower = message.toLowerCase();
+      if (/\b(navigate|directions?)\b/.test(lower) || /\bmap\b/.test(lower)) {
+        await openApp('maps');
+      } else if (/\byoutube\b/.test(lower) || /\byt\b/.test(lower)) {
+        const query = message.replace(/\b(play|on|to|youtube|yt|search)\b/gi, '').trim();
+        if(query) await openExternal(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
+        else await openApp('youtube');
+      } else if (/\bspotify\b/.test(lower) || /\bmusic\b/.test(lower)) {
+        await openApp('spotify');
+      } else if (/\bcall\b/.test(lower)) {
+        // Only dial if the message actually contains a phone number.
+        // Matching bare "call" would also fire on "recall" or "call to
+        // action" and pop a blank dialer for no reason.
+        const numberMatch = message.match(/(\+?\d[\d\s-]{6,}\d)/);
+        if(numberMatch){
+          window.location.href = 'tel:' + numberMatch[1].replace(/[\s-]/g, '');
+        }
+      }
+    }
+
     async function sendToEV(message, isVoice = false) {
       if (!message || !message.trim()) return;
+      if (isSending) return; // ignore taps while a request is already in flight
+      message = message.trim();
+
+      // Fast path: "open X" / "launch X" doesn't need the LLM, the
+      // network, or even an API key.
+      const appCommand = extractAppOpenCommand(message);
+      if(appCommand && APP_REGISTRY[normalizeAppName(appCommand)]){
+        addUserMessage(message);
+        const textInputEl = document.getElementById('textInput');
+        if (textInputEl) textInputEl.value = '';
+        await addMessageAnimated('ev', `Opening ${appCommand.trim()}...`);
+        await openApp(appCommand);
+        if(isVoice) speakText(`Opening ${appCommand.trim()}`);
+        if (navigator.vibrate) navigator.vibrate(50);
+        return;
+      }
 
       if(!apiKey){ showKeyModal(); return; }
 
+      isSending = true;
       addUserMessage(message);
       const textInput = document.getElementById('textInput');
       if (textInput) textInput.value = '';
 
       const orbContainer = document.getElementById('orbContainer');
       const sendBtn = document.getElementById('sendBtn');
+      const micBtn = document.getElementById('micBtn');
       sendBtn.disabled = true;
+      if(micBtn) micBtn.disabled = true;
 
       setStatus('thinking');
       orbContainer.classList.add('thinking');
@@ -466,7 +613,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: "You are E.V., a personal AI assistant for Durai, a 12th-grade student in Chennai, India. Keep your tone sharp, helpful, friendly, and concise." }]
+              parts: [{ text: "You are E.V., a personal AI assistant. Keep your tone sharp, helpful, friendly, and concise." }]
             },
             contents
           })
@@ -490,22 +637,15 @@
           await addMessageAnimated('ev', reply);
           history.push({ role: 'user', parts: [{ text: message }] });
           history.push({ role: 'model', parts: [{ text: reply }] });
+          // Cap history so the request body doesn't grow without bound
+          // over a long-running session.
+          if(history.length > 40) history.splice(0, history.length - 40);
 
           if(isVoice){
             speakText(reply);
           }
 
-          const lowerMsg = message.toLowerCase();
-          if (lowerMsg.includes('navigate') || lowerMsg.includes('map') || lowerMsg.includes('directions')) {
-            openExternal('https://maps.google.com');
-          } else if (lowerMsg.includes('youtube') || lowerMsg.includes(' yt ')) {
-            const query = message.replace(/play|on|to|youtube|yt|search/gi, '').trim();
-            openExternal(query ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}` : 'https://www.youtube.com');
-          } else if (lowerMsg.includes('spotify') || lowerMsg.includes('music')) {
-            openExternal('https://open.spotify.com');
-          } else if (lowerMsg.includes('call')) {
-            window.location.href = 'tel:';
-          }
+          try{ await runIntentActions(message); }catch(e){ /* never let a failed app-launch break the chat */ }
           if (navigator.vibrate) navigator.vibrate(50);
         } else {
           await addMessageAnimated('ev', "No response came back — try rephrasing.", true);
@@ -516,6 +656,8 @@
         await addMessageAnimated('ev', "Connection error: " + err.message, true);
       } finally {
         sendBtn.disabled = false;
+        if(micBtn) micBtn.disabled = false;
+        isSending = false;
         setStatus('ready');
       }
     }
@@ -546,36 +688,75 @@
     window.addEventListener('DOMContentLoaded', initBattery);
 
     /* ============================================================
-       5) WEATHER & EXPLICIT LOCATION PERMISSION PROMPT
+       5) LOCATION — explicit, user-triggered only
+       ------------------------------------------------------------
+       Never requested automatically on load. It only fires when the
+       user taps the weather card, so the OS permission prompt is a
+       direct result of something they chose to do inside the app.
+       Denial never blocks anything else — chat, mic, and app launch
+       keep working regardless of what happens here.
        ============================================================ */
-    function requestLocationPermission(){
-      document.getElementById('weatherCond').textContent = 'Requesting location...';
-      if(!navigator.geolocation){
-        document.getElementById('weatherCond').textContent = 'Geolocation unsupported';
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(async pos => {
-        try{
-          const { latitude, longitude } = pos.coords;
-          const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m`);
-          const data = await res.json();
-          document.getElementById('weatherTemp').textContent = Math.round(data.current.temperature_2m) + '°C';
-          document.getElementById('weatherCond').textContent = 'Live conditions';
-        }catch(e){
-          document.getElementById('weatherCond').textContent = 'Weather fetch failed';
+    let locating = false;
+
+    async function requestLocationPermission(){
+      if(locating) return;
+      locating = true;
+      const condEl = document.getElementById('weatherCond');
+      if(condEl) condEl.textContent = 'Requesting location...';
+
+      try{
+        let coords;
+
+        if(isNative && window.Capacitor?.Plugins?.Geolocation){
+          const { Geolocation } = window.Capacitor.Plugins;
+          let status = await Geolocation.checkPermissions();
+          if(status.location !== 'granted' && status.coarseLocation !== 'granted'){
+            status = await Geolocation.requestPermissions();
+          }
+          if(status.location !== 'granted' && status.coarseLocation !== 'granted'){
+            if(condEl) condEl.textContent = 'Location denied — tap to retry';
+            return;
+          }
+          const pos = await Geolocation.getCurrentPosition({ timeout: 10000, enableHighAccuracy: true });
+          coords = pos.coords;
+        } else if(navigator.geolocation){
+          coords = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              pos => resolve(pos.coords),
+              err => reject(err),
+              { timeout: 10000, enableHighAccuracy: true }
+            );
+          });
+        } else {
+          if(condEl) condEl.textContent = 'Geolocation unsupported';
+          return;
         }
-      }, (err) => {
-        document.getElementById('weatherCond').textContent = 'Permission denied';
-        alert('Location permission was denied. Please allow it in Android app settings.');
-      }, { timeout: 10000, enableHighAccuracy: true });
+
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}&longitude=${coords.longitude}&current=temperature_2m`);
+        if(!res.ok) throw new Error('weather request failed');
+        const data = await res.json();
+        const tempEl = document.getElementById('weatherTemp');
+        if(tempEl) tempEl.textContent = Math.round(data.current.temperature_2m) + '°C';
+        if(condEl) condEl.textContent = 'Live conditions';
+      } catch(err){
+        // err.code === 1 is GeolocationPositionError.PERMISSION_DENIED
+        // (browser path); the native path already returns early above.
+        if(condEl){
+          condEl.textContent = (err && err.code === 1)
+            ? 'Location denied — tap to retry'
+            : "Couldn't get weather — tap to retry";
+        }
+      } finally {
+        locating = false;
+      }
     }
-    window.addEventListener('DOMContentLoaded', requestLocationPermission);
 
     /* ============================================================
-       6) MIC & EXPLICIT PERMISSION PROMPT
+       6) MICROPHONE — explicit, user-triggered only
        ============================================================ */
     let recognition = null;
     let isListening = false;
+    let micBusy = false; // guards against a double-tap while a permission dialog is in flight
 
     function setMicUI(active){
       isListening = active;
@@ -586,25 +767,36 @@
 
     async function toggleMicrophone(){
       if(isListening){
-        await stopListening();
+        stopListening();
         return;
       }
+      if(micBusy) return;
+      micBusy = true;
 
-      // Explicitly prompt WebView microphone access first
       try{
-        if(navigator.mediaDevices?.getUserMedia){
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(track => track.stop());
+        if(isNative && window.Capacitor?.Plugins?.SpeechRecognition){
+          // Native path: let the Capacitor plugin request RECORD_AUDIO
+          // itself. Deliberately skip the browser getUserMedia probe
+          // here — it's a separate permission path inside the WebView
+          // that can prompt twice, or hang, on some devices.
+          await startNativeListening();
+        } else {
+          // Browser / dev-server path: confirm mic access via
+          // getUserMedia first, release it immediately, then hand off
+          // to the Web Speech API (which opens its own audio stream).
+          try{
+            if(navigator.mediaDevices?.getUserMedia){
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              stream.getTracks().forEach(track => track.stop());
+            }
+          }catch(e){
+            await addMessageAnimated('ev', 'Microphone permission is required for voice input.', true);
+            return;
+          }
+          startBrowserListening();
         }
-      }catch(e){
-        alert('Microphone permission required. Please enable it in Android app settings.');
-        return;
-      }
-
-      if(isNative && window.Capacitor?.Plugins?.SpeechRecognition){
-        await startNativeListening();
-      } else {
-        startBrowserListening();
+      } finally {
+        micBusy = false;
       }
     }
 
@@ -612,8 +804,11 @@
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if(!SpeechRecognitionAPI){
         document.getElementById('micBtn')?.classList.add('unsupported');
-        alert('Voice input is not supported in this environment.');
+        addMessageAnimated('ev', 'Voice input is not supported in this environment.', true);
         return;
+      }
+      if(recognition){
+        try{ recognition.stop(); }catch(e){}
       }
       try{
         recognition = new SpeechRecognitionAPI();
@@ -628,14 +823,12 @@
           if (inputField) inputField.value = transcript;
           sendToEV(transcript, true);
         };
-        recognition.onerror = (event) => {
-          setMicUI(false);
-        };
-        recognition.onend = () => setMicUI(false);
+        recognition.onerror = () => setMicUI(false);
+        recognition.onend = () => { setMicUI(false); recognition = null; };
         recognition.start();
       } catch(err){
         setMicUI(false);
-        alert('Could not start microphone: ' + err.message);
+        addMessageAnimated('ev', 'Could not start microphone: ' + err.message, true);
       }
     }
 
@@ -650,11 +843,23 @@
     async function startNativeListening(){
       const SR = window.Capacitor.Plugins.SpeechRecognition;
       try{
-        const perm = await SR.requestPermissions();
-        if(perm.speechRecognition !== 'granted'){
-          alert('Microphone permission denied.');
+        const avail = await SR.available().catch(() => ({ available: true }));
+        if(avail && avail.available === false){
+          await addMessageAnimated('ev', "Voice recognition isn't available on this device.", true);
           return;
         }
+
+        const status = await SR.checkPermissions();
+        let granted = status.speechRecognition === 'granted';
+        if(!granted){
+          const req = await SR.requestPermissions();
+          granted = req.speechRecognition === 'granted';
+        }
+        if(!granted){
+          await addMessageAnimated('ev', 'Microphone permission denied — voice input is off, everything else still works.', true);
+          return;
+        }
+
         setMicUI(true);
         const result = await SR.start({ language: 'en-US', popup: false, partialResults: false });
         setMicUI(false);
@@ -662,7 +867,7 @@
         if(said) sendToEV(said, true);
       } catch(err){
         setMicUI(false);
-        alert('Native voice recognition error: ' + err.message);
+        await addMessageAnimated('ev', 'Voice recognition error: ' + err.message, true);
       }
     }
   </script>
